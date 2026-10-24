@@ -4,3 +4,7 @@
      .venv/
      venv/
      .DS_Store
+
+secrets.toml
+.streamlit/secrets.toml
+.vscode/
