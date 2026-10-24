@@ -15,31 +15,14 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
+from ui import (LANG_CODES, footer, inject_css, metric_cards,
+                receipt_cards, render_header, step_title)
+
 # ---------------------------------------------------------------------------
 # Page setup + RTL styling
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="سجلّ | Sijill", page_icon="🧾", layout="wide")
 
-st.markdown(
-    """
-    <style>
-    html, body, [class*="css"], .stMarkdown, .stTextInput, .stSelectbox {
-        direction: rtl; text-align: right;
-        font-family: 'Tahoma', 'Segoe UI', sans-serif;
-    }
-    .stDataFrame, .stDataEditor { direction: ltr; }
-    .big-title { font-size: 2.4rem; font-weight: 800; margin-bottom: 0; }
-    .subtitle { color: #888; margin-top: 0; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-st.markdown('<p class="big-title">🧾 سجلّ</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p class="subtitle">صوّر إيصالاتك، ودع Gemma 4 يحوّلها إلى جدول مصاريف منظّم — بالعربية والتركية والإنجليزية</p>',
-    unsafe_allow_html=True,
-)
 
 # ---------------------------------------------------------------------------
 # Sidebar: settings
@@ -67,6 +50,10 @@ with st.sidebar:
     if st.button("🗑️ مسح كل الإيصالات"):
         st.session_state.receipts = []
         st.rerun()
+
+lang = LANG_CODES.get(out_lang, "ar")
+inject_css(lang)
+render_header(lang)
 
 if "receipts" not in st.session_state:
     st.session_state.receipts = []
@@ -134,7 +121,7 @@ def check_totals(r: dict) -> str:
 # ---------------------------------------------------------------------------
 # 1) Upload receipts
 # ---------------------------------------------------------------------------
-st.subheader("١. أضف الإيصالات")
+step_title(1, "step1", lang)
 col_a, col_b = st.columns(2)
 with col_a:
     uploads = st.file_uploader(
@@ -173,7 +160,9 @@ if not receipts:
 # ---------------------------------------------------------------------------
 # 2) Receipts table (editable)
 # ---------------------------------------------------------------------------
-st.subheader("٢. جدول الإيصالات")
+step_title(2, "step2", lang)
+receipt_cards(receipts, lang)
+st.write("")
 summary_df = pd.DataFrame(
     [
         {
@@ -217,12 +206,17 @@ with st.expander(f"📦 كل الأصناف ({len(items_df)})"):
 # ---------------------------------------------------------------------------
 # 3) Dashboard
 # ---------------------------------------------------------------------------
-st.subheader("٣. ملخص المصاريف")
+step_title(3, "step3", lang)
 edited["الإجمالي"] = pd.to_numeric(edited["الإجمالي"], errors="coerce").fillna(0)
-m1, m2, m3 = st.columns(3)
-m1.metric("إجمالي المصاريف", f"{edited['الإجمالي'].sum():,.2f}")
-m2.metric("عدد الإيصالات", len(edited))
-m3.metric("متوسط الإيصال", f"{edited['الإجمالي'].mean():,.2f}")
+main_cur = edited["العملة"].dropna().mode()
+metric_cards(
+    total=float(edited["الإجمالي"].sum()),
+    count=len(edited),
+    avg=float(edited["الإجمالي"].mean()),
+    currency=str(main_cur.iloc[0]) if len(main_cur) else "",
+    lang=lang,
+)
+st.write("")
 
 by_cat = edited.groupby("التصنيف")["الإجمالي"].sum().sort_values(ascending=False)
 st.bar_chart(by_cat)
@@ -230,7 +224,7 @@ st.bar_chart(by_cat)
 # ---------------------------------------------------------------------------
 # 4) Export
 # ---------------------------------------------------------------------------
-st.subheader("٤. التصدير")
+step_title(4, "step4", lang)
 e1, e2 = st.columns(2)
 with e1:
     st.download_button(
@@ -254,7 +248,7 @@ with e2:
 # ---------------------------------------------------------------------------
 # 5) Ask about your expenses
 # ---------------------------------------------------------------------------
-st.subheader("٥. اسأل عن مصاريفك 💬")
+step_title(5, "step5", lang)
 question = st.text_input("مثال: أين صرفت أكثر شيء؟ هل يوجد إيصال فيه خطأ؟ اقترح عليّ طريقة للتوفير")
 if question and api_key:
     client = genai.Client(api_key=api_key)
@@ -274,4 +268,4 @@ if question and api_key:
         except Exception as e:
             st.error(f"خطأ: {e}")
 
-st.caption("Powered by Gemma 4 via Gemini API · Open source (MIT)")
+footer(lang)
