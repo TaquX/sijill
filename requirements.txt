@@ -2,3 +2,11 @@ streamlit>=1.38
 google-genai>=1.0
 pandas
 openpyxl
+pillow
+# REST API (optional: only needed for `uvicorn api:app`)
+fastapi
+uvicorn
+python-multipart
+# tests
+pytest
+httpx
