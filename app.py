@@ -16,7 +16,7 @@ from google import genai
 from google.genai import types
 
 from ui import (LANG_CODES, footer, inject_css, metric_cards,
-                receipt_cards, render_header, step_title)
+                receipt_cards, render_header, step_title, t)
 
 # ---------------------------------------------------------------------------
 # Page setup + RTL styling
@@ -27,27 +27,29 @@ st.set_page_config(page_title="سجلّ | Sijill", page_icon="🧾", layout="wid
 # ---------------------------------------------------------------------------
 # Sidebar: settings
 # ---------------------------------------------------------------------------
+lang = LANG_CODES.get(st.session_state.get("out_lang", "العربية"), "ar")
+
 with st.sidebar:
-    st.header("⚙️ الإعدادات")
+    st.header(t("settings", lang))
     api_key = st.text_input(
         "Gemini API Key", type="password", value=os.getenv("GEMINI_API_KEY", "")
     )
     # Check the exact Gemma 4 model ID in Google AI Studio and adjust if needed
     model_name = st.text_input("Model", value=os.getenv("GEMMA_MODEL", "gemma-4-31b-it"))
-    out_lang = st.selectbox("لغة النتائج", ["العربية", "Türkçe", "English"])
+    out_lang = st.selectbox(t("language", lang), ["العربية", "Türkçe", "English"], key="out_lang")
 
-    if st.button("📋 عرض نماذج Gemma المتاحة"):
+    if st.button(t("list_models", lang)):
         if not api_key:
-            st.warning("أدخل مفتاح API أولاً")
+            st.warning(t("enter_key_first", lang))
         else:
             try:
                 c = genai.Client(api_key=api_key)
                 names = [m.name for m in c.models.list() if "gemma" in m.name.lower()]
-                st.write(names or "لم يتم العثور على نماذج Gemma")
+                st.write(names or t("no_gemma", lang))
             except Exception as e:
-                st.error(f"خطأ: {e}")
+                st.error(f"{t('error', lang)}: {e}")
 
-    if st.button("🗑️ مسح كل الإيصالات"):
+    if st.button(t("clear", lang)):
         st.session_state.receipts = []
         st.rerun()
 
@@ -125,36 +127,38 @@ step_title(1, "step1", lang)
 col_a, col_b = st.columns(2)
 with col_a:
     uploads = st.file_uploader(
-        "ارفع صور الإيصالات", type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True
+        t("upload_label", lang), type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True
     )
 with col_b:
-    cam = st.camera_input("أو صوّر الإيصال مباشرة")
+    cam = None
+    if st.toggle(t("use_camera", lang)):
+        cam = st.camera_input(t("camera_label", lang))
 
 files = list(uploads or [])
 if cam:
     files.append(cam)
 
-if files and st.button("🔍 اقرأ الإيصالات بـ Gemma 4", type="primary"):
+if files and st.button(t("read_btn", lang), type="primary"):
     if not api_key:
-        st.error("أدخل مفتاح Gemini API في الشريط الجانبي")
+        st.error(t("need_key", lang))
     else:
         client = genai.Client(api_key=api_key)
         progress = st.progress(0.0)
         for idx, f in enumerate(files):
-            with st.spinner(f"جاري قراءة {f.name} ..."):
+            with st.spinner(f"{t('reading', lang)} {f.name} ..."):
                 try:
                     data = read_receipt(client, f.getvalue(), f.type or "image/jpeg")
                     data["_file"] = f.name
                     data["_check"] = check_totals(data)
                     st.session_state.receipts.append(data)
                 except Exception as e:
-                    st.error(f"تعذّرت قراءة {f.name}: {e}")
+                    st.error(f"{t('read_fail', lang)} {f.name}: {e}")
             progress.progress((idx + 1) / len(files))
-        st.success("تمت القراءة ✅")
+        st.success(t("read_ok", lang))
 
 receipts = st.session_state.receipts
 if not receipts:
-    st.info("ارفع إيصالاً واحداً على الأقل للبدء.")
+    st.info(t("start_info", lang))
     st.stop()
 
 # ---------------------------------------------------------------------------
@@ -200,7 +204,7 @@ for r in receipts:
             }
         )
 items_df = pd.DataFrame(items_rows)
-with st.expander(f"📦 كل الأصناف ({len(items_df)})"):
+with st.expander(f"{t('all_items', lang)} ({len(items_df)})"):
     st.dataframe(items_df, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -228,7 +232,7 @@ step_title(4, "step4", lang)
 e1, e2 = st.columns(2)
 with e1:
     st.download_button(
-        "⬇️ تحميل CSV",
+        t("csv", lang),
         edited.to_csv(index=False).encode("utf-8-sig"),
         file_name=f"sijill_{datetime.now():%Y%m%d}.csv",
         mime="text/csv",
@@ -239,7 +243,7 @@ with e2:
         edited.to_excel(xw, sheet_name="Receipts", index=False)
         items_df.to_excel(xw, sheet_name="Items", index=False)
     st.download_button(
-        "⬇️ تحميل Excel",
+        t("excel", lang),
         buf.getvalue(),
         file_name=f"sijill_{datetime.now():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -249,7 +253,7 @@ with e2:
 # 5) Ask about your expenses
 # ---------------------------------------------------------------------------
 step_title(5, "step5", lang)
-question = st.text_input("مثال: أين صرفت أكثر شيء؟ هل يوجد إيصال فيه خطأ؟ اقترح عليّ طريقة للتوفير")
+question = st.text_input(t("ask_placeholder", lang))
 if question and api_key:
     client = genai.Client(api_key=api_key)
     context = json.dumps(
@@ -261,11 +265,11 @@ if question and api_key:
         f"You are a helpful personal finance assistant. Answer in {out_lang}, briefly and clearly.\n"
         f"Use ONLY this data:\n{context}\n\nQuestion: {question}"
     )
-    with st.spinner("Gemma يفكّر..."):
+    with st.spinner(t("thinking", lang)):
         try:
             ans = client.models.generate_content(model=model_name, contents=q_prompt)
             st.markdown(ans.text)
         except Exception as e:
-            st.error(f"خطأ: {e}")
+            st.error(f"{t('error', lang)}: {e}")
 
 footer(lang)
