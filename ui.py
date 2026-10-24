@@ -66,6 +66,10 @@ for _code, _vals in _EXTRA.items():
     TEXTS[_code].update(_vals)
 
 
+_BACKEND_TEXTS = {'ar': {'display_currency': '💱 عملة العرض', 'duplicate_skip': 'إيصال مكرر، تم تخطيه', 'not_receipt': 'الصورة لا تبدو إيصالاً', 'delete_col': 'حذف', 'by_category': 'حسب التصنيف', 'by_month': 'حسب الشهر', 'report': '🖨️ تقرير للطباعة', 'rates_fallback': '⚠️ أسعار الصرف تقريبية (لا يوجد اتصال بخدمة الأسعار)'}, 'tr': {'display_currency': '💱 Gösterim para birimi', 'duplicate_skip': 'Tekrarlanan fiş atlandı', 'not_receipt': 'Görsel bir fiş gibi görünmüyor', 'delete_col': 'Sil', 'by_category': 'Kategoriye göre', 'by_month': 'Aya göre', 'report': '🖨️ Yazdırılabilir rapor', 'rates_fallback': '⚠️ Döviz kurları yaklaşık (kur servisine ulaşılamadı)'}, 'en': {'display_currency': '💱 Display currency', 'duplicate_skip': 'Duplicate receipt skipped', 'not_receipt': "This image doesn't look like a receipt", 'delete_col': 'Delete', 'by_category': 'By category', 'by_month': 'By month', 'report': '🖨️ Printable report', 'rates_fallback': '⚠️ Exchange rates are approximate (rate service unreachable)'}}
+for _code, _vals in _BACKEND_TEXTS.items():
+    TEXTS[_code].update(_vals)
+
 def t(key: str, lang: str = "ar") -> str:
     """Translated UI label, falling back to English, then to the key itself."""
     return TEXTS.get(lang, TEXTS["en"]).get(key) or TEXTS["en"].get(key, key)
